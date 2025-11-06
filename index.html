@@ -7,96 +7,110 @@
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <style>
 body {
-  font-family: Arial;
+  font-family: Arial, sans-serif;
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; height: 100vh;
   background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  margin: 0;
 }
-h2 { color: #333; margin-bottom: 20px; }
+h2 { color: #333; margin-bottom: 20px; text-align: center; }
+
 .controls {
   display: grid;
   grid-template-areas: ". forward ."
                        "left stop right"
                        ". backward .";
   gap: 15px;
+  justify-content: center;
+  justify-items: center;
+  align-items: center;
 }
+
 #forward { grid-area: forward; }
 #backward { grid-area: backward; }
 #left { grid-area: left; }
 #right { grid-area: right; }
 #stop { grid-area: stop; }
+
 button {
   width: 110px; height: 70px;
   font-size: 18px; border: none; border-radius: 12px;
   background-color: #4CAF50; color: white;
   box-shadow: 0 4px #388E3C; transition: 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 button:active { transform: translateY(3px); }
 #stop { background-color: #f44336; }
 
-.stage {
-  position: relative;
-  width: min(92vw, 560px); height: clamp(220px, 52vh, 420px);
-  margin: 24px 0 8px;
-  border-radius: 16px;
-  background: #f5f5f5;
-  box-shadow: inset 0 0 0 3px #e0e0e0, 0 8px 20px rgba(0,0,0,0.08);
-  overflow: hidden;
+button:focus-visible {
+  outline: 3px solid rgba(76, 175, 80, 0.5);
+  outline-offset: 2px;
 }
-.track {
-  position: absolute; inset: 16px;
-  border: 3px dashed #bdbdbd;
-  border-radius: 12px;
-}
-.car {
-  position: absolute;
-  width: 56px; height: 32px;
-  transform: translate(0px, 0px) rotate(0deg);
-  transform-origin: 50% 50%;
-}
-.car-body {
-  width: 100%; height: 100%;
-  background: linear-gradient(180deg, #1976d2, #0d47a1);
-  border-radius: 8px;
-  box-shadow: 0 6px 12px rgba(13,71,161,0.35);
-}
-.wheel {
-  position: absolute; width: 10px; height: 10px; background: #212121;
-  border-radius: 50%; box-shadow: inset 0 0 0 2px #424242;
-}
-.wheel.front-left { top: -6px; left: 6px; }
-.wheel.front-right { top: -6px; right: 6px; }
-.wheel.back-left { bottom: -6px; left: 6px; }
-.wheel.back-right { bottom: -6px; right: 6px; }
+
 .hud {
-  color: #333; font-size: 14px; margin-bottom: 10px;
+  color: #333; font-size: 14px; margin-bottom: 10px; text-align: center;
 }
-.hint { color: #555; font-size: 13px; }
+.hint {
+  color: #555; font-size: 13px; margin-top: 10px; text-align: center;
+}
+
+/* Control mode toggle */
+.controls-bar {
+  margin: 8px 0 14px;
+  display: flex; gap: 10px; align-items: center; justify-content: center;
+}
+.controls-bar select {
+  font-size: 14px; padding: 6px 10px; border-radius: 8px; border: 1px solid #bbb;
+}
+
+/* Joystick styles */
+.joystick-wrapper { display: none; }
+.joystick {
+  position: relative;
+  width: 260px; height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #e8f0fe, #c5d8ff);
+  border: 2px solid #90a4ae;
+  box-shadow: inset 0 8px 18px rgba(0,0,0,0.12), 0 8px 18px rgba(0,0,0,0.12);
+  touch-action: none;
+}
+.joystick .knob {
+  position: absolute; left: 50%; top: 50%;
+  width: 84px; height: 84px;
+  margin-left: -42px; margin-top: -42px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #fafafa, #e0e0e0);
+  border: 2px solid #90a4ae;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+  transition: transform 60ms linear;
+}
 
 @media (max-width: 600px) {
-  body { height: auto; padding: 12px; }
+  body { height: auto; padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)); }
   h2 { font-size: 20px; margin-bottom: 12px; }
   .controls { gap: 10px; }
-  button { width: 28vw; height: 60px; font-size: 16px; }
-  #stop { width: 28vw; }
+  button { width: 29vw; height: 64px; font-size: 17px; }
+  #stop { width: 29vw; }
   .hud { font-size: 13px; }
   .hint { font-size: 12px; }
+  .joystick { width: 72vw; height: 72vw; max-width: 320px; max-height: 320px; }
+  .joystick .knob { width: 26vw; height: 26vw; max-width: 110px; max-height: 110px; margin-left: 0; margin-top: 0; left: 50%; top: 50%; transform: translate(-50%,-50%); }
 }
 </style>
 </head>
 <body>
   <h2>🚗 MQTT WiFi Car Control</h2>
   <div class="hud">Use arrow keys or WASD to drive. Hold to move, release to stop.</div>
-  <div class="stage" aria-label="car stage">
-    <div class="track"></div>
-    <div id="car" class="car">
-      <div class="car-body"></div>
-      <div class="wheel front-left"></div>
-      <div class="wheel front-right"></div>
-      <div class="wheel back-left"></div>
-      <div class="wheel back-right"></div>
-    </div>
+
+  <div class="controls-bar">
+    <label for="mode">Control mode:</label>
+    <select id="mode">
+      <option value="buttons" selected>Buttons</option>
+      <option value="joystick">Joystick</option>
+    </select>
   </div>
+
   <div class="controls">
     <button id="forward">Forward</button>
     <button id="backward">Backward</button>
@@ -104,23 +118,30 @@ button:active { transform: translateY(3px); }
     <button id="right">Right</button>
     <button id="stop">Stop</button>
   </div>
-  <div class="hint">Buttons and keyboard send MQTT commands to `car/control`.</div>
+
+  <div class="joystick-wrapper">
+    <div id="joystick" class="joystick">
+      <div id="knob" class="knob"></div>
+    </div>
+    <div class="hint">Drag the knob to move. Release to stop.</div>
+  </div>
 
 <script>
+// MQTT connection options
 const options = {
-  username: "Prashil",  
-  password: "Prashil@n79", 
+  username: "Prashil",
+  password: "Prashil@n79",
   clean: true,
   connectTimeout: 4000,
   reconnectPeriod: 2000
 };
 
-// Use WebSocket Secure port (8884)
+// Connect to HiveMQ Cloud using WebSocket Secure
 const client = mqtt.connect("wss://f31f59e872194305880111b99a249d12.s1.eu.hivemq.cloud:8884/mqtt", options);
 
 client.on("connect", () => {
   console.log("✅ Connected to HiveMQ Cloud");
-  client.subscribe("car/status", (err) => {
+  client.subscribe("car/status", err => {
     if (!err) console.log("📡 Subscribed to car/status");
   });
 });
@@ -129,136 +150,168 @@ client.on("message", (topic, message) => {
   console.log(`📩 ${topic}: ${message.toString()}`);
 });
 
-client.on("error", (err) => console.error("❌ Connection error", err));
+client.on("error", err => console.error("❌ Connection error", err));
 
+// Send MQTT command
 function send(cmd) {
+  console.log(`🚀 Sending: ${cmd}`);
   client.publish("car/control", cmd);
 }
 
 function stop() { send("stop"); }
 
-["forward","backward","left","right","stop"].forEach(id=>{
- const b=document.getElementById(id);
- if(id==="stop"){b.onclick=stop;return;}
- b.onmousedown=()=>startMove(id); b.onmouseup=endMove; b.onmouseleave=endMove;
- b.ontouchstart=e=>{e.preventDefault();startMove(id);} 
- b.ontouchend=e=>{e.preventDefault();endMove();}
-});
-
-// Animation and keyboard controls
-const carEl = document.getElementById("car");
-const stageEl = document.querySelector(".stage");
-const carW = 56, carH = 32, margin = 8;
-let posX = 0; // will be centered on load
-let posY = 0; // will be centered on load
-let angleDeg = 0;
-let reqId = null;
-let activeDir = null; // "forward" | "backward" | "left" | "right" | null
-const speed = 220; // px per second
-
-function clamp(val, min, max){ return Math.max(min, Math.min(max, val)); }
-
-function centerCar(){
-  const w = stageEl.clientWidth;
-  const h = stageEl.clientHeight;
-  posX = (w - carW) / 2;
-  posY = (h - carH) / 2;
-  carEl.style.transform = `translate(${posX}px, ${posY}px) rotate(${angleDeg}deg)`;
+// Vibration helper
+function vibrate(pattern) {
+  if (navigator.vibrate) navigator.vibrate(pattern);
 }
 
-function setDirection(dir){
-  if(activeDir === dir) return;
-  activeDir = dir;
-  if(dir){
-    const mqttMap = { forward: "backward", backward: "forward", left: "left", right: "right" };
-    send(mqttMap[dir] || dir);
-    if(dir==="forward") angleDeg = 180;
-    if(dir==="backward") angleDeg = 0;
-    if(dir==="left") angleDeg = -90;
-    if(dir==="right") angleDeg = 90;
-    loop();
-  } else {
+// Mode toggle
+const modeSelect = document.getElementById("mode");
+const buttonsGrid = document.querySelector(".controls");
+const joystickWrapper = document.querySelector(".joystick-wrapper");
+
+function applyMode() {
+  const isJoystick = modeSelect.value === "joystick";
+  buttonsGrid.style.display = isJoystick ? "none" : "grid";
+  joystickWrapper.style.display = isJoystick ? "block" : "none";
+}
+
+modeSelect.onchange = applyMode;
+
+// Auto-select joystick on touch devices and initialize state on load
+const isTouchDevice = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+if (isTouchDevice) {
+  modeSelect.value = "joystick";
+}
+applyMode();
+
+// Button bindings
+["forward","backward","left","right","stop"].forEach(id => {
+  const b = document.getElementById(id);
+  if(id === "stop") {
+    b.onclick = () => { vibrate(40); stop(); };
+    b.ontouchend = e => { e.preventDefault(); vibrate(40); stop(); };
+    return;
+  }
+  b.onmousedown = () => { vibrate(12); send(id); };
+  b.onmouseup = () => { vibrate(20); stop(); };
+  b.onmouseleave = () => { stop(); };
+  b.ontouchstart = e => { e.preventDefault(); vibrate([10, 20]); send(id); };
+  b.ontouchend = e => { e.preventDefault(); vibrate(20); stop(); };
+});
+
+// Joystick controls
+const joystick = document.getElementById("joystick");
+const knob = document.getElementById("knob");
+let joyActive = false;
+let lastJoyCmd = null;
+
+function setKnob(dx, dy) {
+  knob.style.transform = `translate(${dx}px, ${dy}px)`;
+}
+
+function computeCmd(dx, dy, deadzone) {
+  const dist = Math.hypot(dx, dy);
+  if (dist < deadzone) return null;
+  const absX = Math.abs(dx), absY = Math.abs(dy);
+  if (absX > absY) return dx > 0 ? "right" : "left";
+  return dy > 0 ? "backward" : "forward";
+}
+
+function handleJoyMove(clientX, clientY) {
+  const rect = joystick.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  let dx = clientX - cx;
+  let dy = clientY - cy;
+  const radius = Math.min(rect.width, rect.height) / 2 - (knob.offsetWidth / 2);
+  const dist = Math.hypot(dx, dy);
+  if (dist > radius) {
+    const scale = radius / dist;
+    dx *= scale; dy *= scale;
+  }
+  setKnob(dx, dy);
+  const cmd = computeCmd(dx, dy, Math.max(12, radius * 0.18));
+  if (cmd && cmd !== lastJoyCmd) {
+    lastJoyCmd = cmd;
+    vibrate(10);
+    send(cmd);
+  } else if (!cmd && lastJoyCmd) {
+    lastJoyCmd = null;
+    vibrate(18);
     stop();
-    cancelAnim();
   }
 }
 
-function startMove(dir){ setDirection(dir); }
-function endMove(){ setDirection(null); }
-
-function cancelAnim(){ if(reqId){ cancelAnimationFrame(reqId); reqId = null; } }
-
-let lastTs = 0;
-function loop(ts){
-  if(!activeDir){ cancelAnim(); return; }
-  if(!ts) ts = performance.now();
-  const dt = lastTs ? (ts - lastTs)/1000 : 0; // seconds
-  lastTs = ts;
-
-  let vx = 0, vy = 0;
-  if(activeDir === "forward") { vy = 1; }
-  if(activeDir === "backward") { vy = -1; }
-  if(activeDir === "left") { vx = -1; }
-  if(activeDir === "right") { vx = 1; }
-
-  posX += vx * speed * dt;
-  posY += vy * speed * dt;
-
-  // bounds within stage inner area (approx considering car size)
-  const maxX = stageEl.clientWidth - carW - margin;
-  const maxY = stageEl.clientHeight - carH - margin;
-  posX = clamp(posX, margin, maxX);
-  posY = clamp(posY, margin, maxY);
-
-  carEl.style.transform = `translate(${posX}px, ${posY}px) rotate(${angleDeg}deg)`;
-  reqId = requestAnimationFrame(loop);
+function resetKnob() {
+  knob.style.transform = "translate(-50%,-50%)"; // for mobile size variant
+  // For desktop size, center using zero offset
+  knob.style.left = "50%"; knob.style.top = "50%";
 }
 
-// Keyboard: Arrow keys + WASD
-const keyToDir = {
+joystick.addEventListener("touchstart", (e) => {
+  joyActive = true;
+  const t = e.touches[0];
+  handleJoyMove(t.clientX, t.clientY);
+}, { passive: true });
+
+joystick.addEventListener("touchmove", (e) => {
+  if (!joyActive) return;
+  const t = e.touches[0];
+  handleJoyMove(t.clientX, t.clientY);
+}, { passive: true });
+
+joystick.addEventListener("touchend", () => {
+  joyActive = false;
+  lastJoyCmd = null;
+  vibrate(25);
+  stop();
+  // snap back
+  knob.style.transform = "translate(-50%,-50%)";
+});
+
+// Mouse support (optional)
+joystick.addEventListener("mousedown", (e) => {
+  joyActive = true;
+  handleJoyMove(e.clientX, e.clientY);
+});
+joystick.addEventListener("mousemove", (e) => {
+  if (!joyActive) return;
+  handleJoyMove(e.clientX, e.clientY);
+});
+joystick.addEventListener("mouseup", () => {
+  if (!joyActive) return;
+  joyActive = false; lastJoyCmd = null; vibrate(20); stop(); knob.style.transform = "translate(-50%,-50%)";
+});
+joystick.addEventListener("mouseleave", () => {
+  if (!joyActive) return;
+  joyActive = false; lastJoyCmd = null; stop(); knob.style.transform = "translate(-50%,-50%)";
+});
+
+// Keyboard controls (arrow keys + WASD)
+const keyToCmd = {
   ArrowUp: "forward", KeyW: "forward",
   ArrowDown: "backward", KeyS: "backward",
   ArrowLeft: "left", KeyA: "left",
   ArrowRight: "right", KeyD: "right"
 };
 
-const downKeys = new Set();
-window.addEventListener("keydown", (e)=>{
-  const code = e.code in keyToDir ? e.code : e.key in keyToDir ? e.key : e.code;
-  const dir = keyToDir[code] || keyToDir[e.key];
-  if(!dir) return;
-  e.preventDefault();
-  if(downKeys.has(code)) return; // ignore repeats
-  downKeys.add(code);
-  setDirection(dir);
+let activeKeyCmd = null;
+
+document.addEventListener("keydown", (e) => {
+  const code = e.code in keyToCmd ? e.code : e.key;
+  const cmd = keyToCmd[code];
+  if (!cmd) return;
+  if (activeKeyCmd === cmd) return; // prevent repeats when holding key
+  activeKeyCmd = cmd;
+  vibrate(10);
+  send(cmd);
 });
 
-window.addEventListener("keyup", (e)=>{
-  const code = e.code in keyToDir ? e.code : e.key in keyToDir ? e.key : e.code;
-  if(downKeys.has(code)) downKeys.delete(code);
-  // Determine next active direction from remaining keys
-  for(const k of downKeys){
-    const dir = keyToDir[k] || keyToDir[e.key];
-    if(dir){ setDirection(dir); return; }
-  }
-  endMove();
+document.addEventListener("keyup", (e) => {
+  const code = e.code in keyToCmd ? e.code : e.key;
+  if (!keyToCmd[code]) return;
+  activeKeyCmd = null;
+  vibrate(20);
+  stop();
 });
-
-// Initialize position and handle resize
-window.addEventListener("load", ()=>{
-  centerCar();
-});
-window.addEventListener("resize", ()=>{
-  // If not moving, recenter; otherwise just clamp to new bounds
-  if(!activeDir){ centerCar(); }
-  else {
-    const maxX = stageEl.clientWidth - carW - margin;
-    const maxY = stageEl.clientHeight - carH - margin;
-    posX = clamp(posX, margin, maxX);
-    posY = clamp(posY, margin, maxY);
-    carEl.style.transform = `translate(${posX}px, ${posY}px) rotate(${angleDeg}deg)`;
-  }
-});
-</script>
-</body>
-</html>
