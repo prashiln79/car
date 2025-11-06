@@ -13,10 +13,10 @@ body {
   background: linear-gradient(135deg, #e3f2fd, #bbdefb);
   margin: 0;
 }
-h2 { color: #333; margin-bottom: 20px; text-align: center; }
+h2 { color: #333; margin-bottom: 10px; text-align: center; }
 
 .hud {
-  color: #333; font-size: 14px; margin-bottom: 10px; text-align: center;
+  color: #333; font-size: 14px; margin-bottom: 15px; text-align: center;
 }
 
 .controls {
@@ -25,7 +25,7 @@ h2 { color: #333; margin-bottom: 20px; text-align: center; }
     ". forward ."
     "left stop right"
     ". backward .";
-  gap: 15px;
+  gap: 14px;
   justify-content: center;
   align-items: center;
 }
@@ -37,37 +37,46 @@ h2 { color: #333; margin-bottom: 20px; text-align: center; }
 #stop { grid-area: stop; }
 
 button {
-  width: 120px; height: 80px;
-  font-size: 18px; font-weight: 600;
+  width: 110px; height: 75px;
+  font-size: 17px; font-weight: 600;
   border: none; border-radius: 16px;
   background-color: #4CAF50; color: white;
   box-shadow: 0 6px #388E3C;
   transition: 0.15s ease;
   touch-action: manipulation;
   user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
 }
 button:active { transform: scale(0.96); }
 #stop { background-color: #f44336; box-shadow: 0 6px #c62828; }
 
+.extra-controls {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  justify-content: center; margin-top: 10px;
+}
+
+.extra-controls button {
+  width: 120px; height: 60px;
+  background-color: #2196f3;
+  box-shadow: 0 5px #1565c0;
+}
+
+#lightOff { background-color: #555; box-shadow: 0 5px #333; }
+
+.speed-control {
+  margin-top: 18px; text-align: center;
+}
+.speed-control input { width: 220px; }
+.speed-value { font-weight: 600; margin-top: 4px; color: #333; }
+
 @media (max-width: 600px) {
-  h2 { font-size: 22px; margin-bottom: 15px; }
-  .hud { font-size: 13px; }
-  button {
-    width: 28vw; height: 72px; font-size: 16px;
-    border-radius: 14px;
-  }
+  button { width: 28vw; height: 70px; font-size: 16px; }
   #stop { width: 28vw; }
-  .controls { gap: 10px; }
 }
 </style>
 </head>
 <body>
   <h2>🚗 MQTT WiFi Car Control</h2>
-  <div class="hud">Touch and hold to move. Release to stop.</div>
+  <div class="hud">Hold to move — combinations like Forward+Left are supported</div>
 
   <div class="controls">
     <button id="forward">Forward</button>
@@ -75,6 +84,17 @@ button:active { transform: scale(0.96); }
     <button id="left">Left</button>
     <button id="right">Right</button>
     <button id="stop">Stop</button>
+  </div>
+
+  <div class="extra-controls">
+    <button id="lightOn">💡 Light On</button>
+    <button id="lightOff">💤 Light Off</button>
+  </div>
+
+  <div class="speed-control">
+    <label for="speed">Speed</label><br>
+    <input type="range" id="speed" min="0" max="255" value="255">
+    <div class="speed-value">Speed: <span id="speedVal">255</span></div>
   </div>
 
 <script>
@@ -86,52 +106,70 @@ const options = {
   connectTimeout: 4000,
   reconnectPeriod: 2000
 };
-
-// Connect to HiveMQ Cloud using WSS
 const client = mqtt.connect("wss://f31f59e872194305880111b99a249d12.s1.eu.hivemq.cloud:8884/mqtt", options);
 
 client.on("connect", () => {
   console.log("✅ Connected to HiveMQ Cloud");
-  client.subscribe("car/status", err => {
-    if (!err) console.log("📡 Subscribed to car/status");
-  });
+  client.subscribe("car/status");
 });
+client.on("message", (topic, message) => console.log(`📩 ${topic}: ${message.toString()}`));
 
-client.on("message", (topic, message) => {
-  console.log(`📩 ${topic}: ${message.toString()}`);
-});
+// ===== COMMAND SYSTEM =====
+let pressed = new Set();
 
-client.on("error", err => console.error("❌ MQTT Error:", err));
+function vibrate(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
+function send(cmd) { console.log("🚀 Sending:", cmd); client.publish("car/control", cmd); }
 
-// ===== COMMAND SEND =====
-function send(cmd) {
-  console.log(`🚀 Sending: ${cmd}`);
-  client.publish("car/control", cmd);
-}
 function stop() { send("stop"); }
 
-function vibrate(ms) {
-  if (navigator.vibrate) navigator.vibrate(ms);
+// Determine motion based on active pressed keys/buttons
+function evaluateMotion() {
+  let cmd = "";
+  const f = pressed.has("forward");
+  const b = pressed.has("backward");
+  const l = pressed.has("left");
+  const r = pressed.has("right");
+
+  if (f && l) cmd = "forward_left";
+  else if (f && r) cmd = "forward_right";
+  else if (b && l) cmd = "backward_left";
+  else if (b && r) cmd = "backward_right";
+  else if (f) cmd = "forward";
+  else if (b) cmd = "backward";
+  else if (l) cmd = "left";
+  else if (r) cmd = "right";
+  else cmd = "stop";
+
+  send(cmd);
 }
 
 // ===== BUTTON CONTROLS =====
-const buttons = ["forward","backward","left","right"];
-buttons.forEach(id => {
+["forward","backward","left","right"].forEach(id => {
   const btn = document.getElementById(id);
 
-  // Desktop: Mouse control
-  btn.onmousedown = () => { vibrate(15); send(id); };
-  btn.onmouseup = stop;
-  btn.onmouseleave = stop;
+  // Mouse controls
+  btn.onmousedown = () => { pressed.add(id); evaluateMotion(); };
+  btn.onmouseup = () => { pressed.delete(id); evaluateMotion(); };
+  btn.onmouseleave = () => { pressed.delete(id); evaluateMotion(); };
 
-  // Mobile: Touch control
-  btn.ontouchstart = e => { e.preventDefault(); vibrate(20); send(id); };
-  btn.ontouchend = e => { e.preventDefault(); vibrate(25); stop(); };
+  // Touch controls
+  btn.ontouchstart = e => { e.preventDefault(); pressed.add(id); evaluateMotion(); };
+  btn.ontouchend = e => { e.preventDefault(); pressed.delete(id); evaluateMotion(); };
 });
 
-const stopBtn = document.getElementById("stop");
-stopBtn.onclick = () => { vibrate(40); stop(); };
-stopBtn.ontouchend = e => { e.preventDefault(); vibrate(40); stop(); };
+document.getElementById("stop").onclick = () => { pressed.clear(); stop(); };
+
+// ===== LIGHT CONTROLS =====
+document.getElementById("lightOn").onclick = () => send("light_on");
+document.getElementById("lightOff").onclick = () => send("light_off");
+
+// ===== SPEED CONTROL =====
+const speedSlider = document.getElementById("speed");
+const speedVal = document.getElementById("speedVal");
+speedSlider.oninput = () => {
+  speedVal.textContent = speedSlider.value;
+  send(`speed:${speedSlider.value}`);
+};
 
 // ===== KEYBOARD SUPPORT =====
 const keyMap = {
@@ -140,15 +178,15 @@ const keyMap = {
   ArrowLeft: "left", KeyA: "left",
   ArrowRight: "right", KeyD: "right"
 };
-let activeKey = null;
 
 document.addEventListener("keydown", e => {
   const cmd = keyMap[e.code];
-  if (!cmd || cmd === activeKey) return;
-  activeKey = cmd; vibrate(10); send(cmd);
+  if (!cmd) return;
+  if (!pressed.has(cmd)) { pressed.add(cmd); evaluateMotion(); }
 });
 document.addEventListener("keyup", e => {
-  if (keyMap[e.code]) { activeKey = null; vibrate(15); stop(); }
+  const cmd = keyMap[e.code];
+  if (cmd && pressed.has(cmd)) { pressed.delete(cmd); evaluateMotion(); }
 });
 </script>
 </body>
