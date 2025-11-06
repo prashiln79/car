@@ -61,6 +61,8 @@ button:active { transform: scale(0.96); }
 }
 
 #lightOff { background-color: #555; box-shadow: 0 5px #333; }
+#gyroToggle { background-color: #9c27b0; box-shadow: 0 5px #6a1b9a; }
+#gyroToggle.active { background-color: #4caf50; box-shadow: 0 5px #388e3c; }
 
 .speed-control {
   margin-top: 18px; text-align: center;
@@ -89,6 +91,7 @@ button:active { transform: scale(0.96); }
   <div class="extra-controls">
     <button id="lightOn">💡 Light On</button>
     <button id="lightOff">💤 Light Off</button>
+    <button id="gyroToggle">📱 Enable Gyro</button>
   </div>
 
   <div class="speed-control">
@@ -188,6 +191,98 @@ document.addEventListener("keyup", e => {
   const cmd = keyMap[e.code];
   if (cmd && pressed.has(cmd)) { pressed.delete(cmd); evaluateMotion(); }
 });
+
+// ===== GYROSCOPE CONTROL =====
+let gyroEnabled = false;
+let gyroPressed = new Set();
+const gyroThreshold = 15; // degrees of tilt to trigger movement
+const gyroDeadzone = 5; // deadzone to prevent drift
+
+const gyroToggleBtn = document.getElementById("gyroToggle");
+
+function updateGyroButton() {
+  if (gyroEnabled) {
+    gyroToggleBtn.textContent = "📱 Disable Gyro";
+    gyroToggleBtn.classList.add("active");
+  } else {
+    gyroToggleBtn.textContent = "📱 Enable Gyro";
+    gyroToggleBtn.classList.remove("active");
+    // Clear gyro-based pressed keys when disabled
+    gyroPressed.forEach(key => pressed.delete(key));
+    gyroPressed.clear();
+    evaluateMotion();
+  }
+}
+
+gyroToggleBtn.onclick = () => {
+  if (!gyroEnabled) {
+    // Request permission for DeviceOrientationEvent (iOS 13+)
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(response => {
+          if (response === 'granted') {
+            gyroEnabled = true;
+            updateGyroButton();
+            startGyro();
+          } else {
+            alert("Gyroscope permission denied. Please enable it in settings.");
+          }
+        })
+        .catch(err => console.error("Error requesting gyro permission:", err));
+    } else {
+      // Android/other browsers
+      gyroEnabled = true;
+      updateGyroButton();
+      startGyro();
+    }
+  } else {
+    gyroEnabled = false;
+    updateGyroButton();
+    stopGyro();
+  }
+};
+
+function startGyro() {
+  window.addEventListener("deviceorientation", handleOrientation);
+}
+
+function stopGyro() {
+  window.removeEventListener("deviceorientation", handleOrientation);
+}
+
+function handleOrientation(event) {
+  if (!gyroEnabled) return;
+
+  const beta = event.beta; // front-back tilt (-180 to 180)
+  const gamma = event.gamma; // left-right tilt (-90 to 90)
+
+  // Clear previous gyro-based commands
+  gyroPressed.forEach(key => pressed.delete(key));
+  gyroPressed.clear();
+
+  // Forward/Backward based on beta (front-back tilt)
+  if (beta > gyroThreshold + gyroDeadzone) {
+    gyroPressed.add("backward");
+    pressed.add("backward");
+  } else if (beta < -gyroThreshold - gyroDeadzone) {
+    gyroPressed.add("forward");
+    pressed.add("forward");
+  }
+
+  // Left/Right based on gamma (left-right tilt)
+  if (gamma > gyroThreshold + gyroDeadzone) {
+    gyroPressed.add("right");
+    pressed.add("right");
+  } else if (gamma < -gyroThreshold - gyroDeadzone) {
+    gyroPressed.add("left");
+    pressed.add("left");
+  }
+
+  // Update motion based on current state
+  evaluateMotion();
+}
+
+updateGyroButton();
 </script>
 </body>
 </html>
