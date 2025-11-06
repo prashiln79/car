@@ -151,9 +151,10 @@ function setDirection(dir){
   if(activeDir === dir) return;
   activeDir = dir;
   if(dir){
-    send(dir);
-    if(dir==="forward") angleDeg = 0;
-    if(dir==="backward") angleDeg = 180;
+    const mqttMap = { forward: "backward", backward: "forward", left: "left", right: "right" };
+    send(mqttMap[dir] || dir);
+    if(dir==="forward") angleDeg = 180;
+    if(dir==="backward") angleDeg = 0;
     if(dir==="left") angleDeg = -90;
     if(dir==="right") angleDeg = 90;
     loop();
@@ -176,8 +177,8 @@ function loop(ts){
   lastTs = ts;
 
   let vx = 0, vy = 0;
-  if(activeDir === "forward") { vy = -1; }
-  if(activeDir === "backward") { vy = 1; }
+  if(activeDir === "forward") { vy = 1; }
+  if(activeDir === "backward") { vy = -1; }
   if(activeDir === "left") { vx = -1; }
   if(activeDir === "right") { vx = 1; }
 
