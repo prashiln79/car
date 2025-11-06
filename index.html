@@ -15,14 +15,18 @@ body {
 }
 h2 { color: #333; margin-bottom: 20px; text-align: center; }
 
+.hud {
+  color: #333; font-size: 14px; margin-bottom: 10px; text-align: center;
+}
+
 .controls {
   display: grid;
-  grid-template-areas: ". forward ."
-                       "left stop right"
-                       ". backward .";
+  grid-template-areas:
+    ". forward ."
+    "left stop right"
+    ". backward .";
   gap: 15px;
   justify-content: center;
-  justify-items: center;
   align-items: center;
 }
 
@@ -33,83 +37,32 @@ h2 { color: #333; margin-bottom: 20px; text-align: center; }
 #stop { grid-area: stop; }
 
 button {
-  width: 110px; height: 70px;
-  font-size: 18px; border: none; border-radius: 12px;
+  width: 120px; height: 80px;
+  font-size: 18px; font-weight: 600;
+  border: none; border-radius: 16px;
   background-color: #4CAF50; color: white;
-  box-shadow: 0 4px #388E3C; transition: 0.1s;
-  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 6px #388E3C;
+  transition: 0.15s ease;
   touch-action: manipulation;
 }
-button:active { transform: translateY(3px); }
-#stop { background-color: #f44336; }
-
-button:focus-visible {
-  outline: 3px solid rgba(76, 175, 80, 0.5);
-  outline-offset: 2px;
-}
-
-.hud {
-  color: #333; font-size: 14px; margin-bottom: 10px; text-align: center;
-}
-.hint {
-  color: #555; font-size: 13px; margin-top: 10px; text-align: center;
-}
-
-/* Control mode toggle */
-.controls-bar {
-  margin: 8px 0 14px;
-  display: flex; gap: 10px; align-items: center; justify-content: center;
-}
-.controls-bar select {
-  font-size: 14px; padding: 6px 10px; border-radius: 8px; border: 1px solid #bbb;
-}
-
-/* Joystick styles */
-.joystick-wrapper { display: none; }
-.joystick {
-  position: relative;
-  width: 260px; height: 260px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%, #e8f0fe, #c5d8ff);
-  border: 2px solid #90a4ae;
-  box-shadow: inset 0 8px 18px rgba(0,0,0,0.12), 0 8px 18px rgba(0,0,0,0.12);
-  touch-action: none;
-}
-.joystick .knob {
-  position: absolute; left: 50%; top: 50%;
-  width: 84px; height: 84px;
-  margin-left: -42px; margin-top: -42px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 40%, #fafafa, #e0e0e0);
-  border: 2px solid #90a4ae;
-  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-  transition: transform 60ms linear;
-}
+button:active { transform: scale(0.96); }
+#stop { background-color: #f44336; box-shadow: 0 6px #c62828; }
 
 @media (max-width: 600px) {
-  body { height: auto; padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)); }
-  h2 { font-size: 20px; margin-bottom: 12px; }
-  .controls { gap: 10px; }
-  button { width: 29vw; height: 64px; font-size: 17px; }
-  #stop { width: 29vw; }
+  h2 { font-size: 22px; margin-bottom: 15px; }
   .hud { font-size: 13px; }
-  .hint { font-size: 12px; }
-  .joystick { width: 72vw; height: 72vw; max-width: 320px; max-height: 320px; }
-  .joystick .knob { width: 26vw; height: 26vw; max-width: 110px; max-height: 110px; margin-left: 0; margin-top: 0; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+  button {
+    width: 28vw; height: 72px; font-size: 16px;
+    border-radius: 14px;
+  }
+  #stop { width: 28vw; }
+  .controls { gap: 10px; }
 }
 </style>
 </head>
 <body>
   <h2>🚗 MQTT WiFi Car Control</h2>
-  <div class="hud">Use arrow keys or WASD to drive. Hold to move, release to stop.</div>
-
-  <div class="controls-bar">
-    <label for="mode">Control mode:</label>
-    <select id="mode">
-      <option value="buttons" selected>Buttons</option>
-      <option value="joystick">Joystick</option>
-    </select>
-  </div>
+  <div class="hud">Touch and hold to move. Release to stop.</div>
 
   <div class="controls">
     <button id="forward">Forward</button>
@@ -119,15 +72,8 @@ button:focus-visible {
     <button id="stop">Stop</button>
   </div>
 
-  <div class="joystick-wrapper">
-    <div id="joystick" class="joystick">
-      <div id="knob" class="knob"></div>
-    </div>
-    <div class="hint">Drag the knob to move. Release to stop.</div>
-  </div>
-
 <script>
-// MQTT connection options
+// ===== MQTT CONFIG =====
 const options = {
   username: "Prashil",
   password: "Prashil@n79",
@@ -136,7 +82,7 @@ const options = {
   reconnectPeriod: 2000
 };
 
-// Connect to HiveMQ Cloud using WebSocket Secure
+// Connect to HiveMQ Cloud using WSS
 const client = mqtt.connect("wss://f31f59e872194305880111b99a249d12.s1.eu.hivemq.cloud:8884/mqtt", options);
 
 client.on("connect", () => {
@@ -150,168 +96,55 @@ client.on("message", (topic, message) => {
   console.log(`📩 ${topic}: ${message.toString()}`);
 });
 
-client.on("error", err => console.error("❌ Connection error", err));
+client.on("error", err => console.error("❌ MQTT Error:", err));
 
-// Send MQTT command
+// ===== COMMAND SEND =====
 function send(cmd) {
   console.log(`🚀 Sending: ${cmd}`);
   client.publish("car/control", cmd);
 }
-
 function stop() { send("stop"); }
 
-// Vibration helper
-function vibrate(pattern) {
-  if (navigator.vibrate) navigator.vibrate(pattern);
+function vibrate(ms) {
+  if (navigator.vibrate) navigator.vibrate(ms);
 }
 
-// Mode toggle
-const modeSelect = document.getElementById("mode");
-const buttonsGrid = document.querySelector(".controls");
-const joystickWrapper = document.querySelector(".joystick-wrapper");
+// ===== BUTTON CONTROLS =====
+const buttons = ["forward","backward","left","right"];
+buttons.forEach(id => {
+  const btn = document.getElementById(id);
 
-function applyMode() {
-  const isJoystick = modeSelect.value === "joystick";
-  buttonsGrid.style.display = isJoystick ? "none" : "grid";
-  joystickWrapper.style.display = isJoystick ? "block" : "none";
-}
+  // Desktop: Mouse control
+  btn.onmousedown = () => { vibrate(15); send(id); };
+  btn.onmouseup = stop;
+  btn.onmouseleave = stop;
 
-modeSelect.onchange = applyMode;
-
-// Auto-select joystick on touch devices and initialize state on load
-const isTouchDevice = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
-if (isTouchDevice) {
-  modeSelect.value = "joystick";
-}
-applyMode();
-
-// Button bindings
-["forward","backward","left","right","stop"].forEach(id => {
-  const b = document.getElementById(id);
-  if(id === "stop") {
-    b.onclick = () => { vibrate(40); stop(); };
-    b.ontouchend = e => { e.preventDefault(); vibrate(40); stop(); };
-    return;
-  }
-  b.onmousedown = () => { vibrate(12); send(id); };
-  b.onmouseup = () => { vibrate(20); stop(); };
-  b.onmouseleave = () => { stop(); };
-  b.ontouchstart = e => { e.preventDefault(); vibrate([10, 20]); send(id); };
-  b.ontouchend = e => { e.preventDefault(); vibrate(20); stop(); };
+  // Mobile: Touch control
+  btn.ontouchstart = e => { e.preventDefault(); vibrate(20); send(id); };
+  btn.ontouchend = e => { e.preventDefault(); vibrate(25); stop(); };
 });
 
-// Joystick controls
-const joystick = document.getElementById("joystick");
-const knob = document.getElementById("knob");
-let joyActive = false;
-let lastJoyCmd = null;
+const stopBtn = document.getElementById("stop");
+stopBtn.onclick = () => { vibrate(40); stop(); };
+stopBtn.ontouchend = e => { e.preventDefault(); vibrate(40); stop(); };
 
-function setKnob(dx, dy) {
-  knob.style.transform = `translate(${dx}px, ${dy}px)`;
-}
-
-function computeCmd(dx, dy, deadzone) {
-  const dist = Math.hypot(dx, dy);
-  if (dist < deadzone) return null;
-  const absX = Math.abs(dx), absY = Math.abs(dy);
-  if (absX > absY) return dx > 0 ? "right" : "left";
-  return dy > 0 ? "backward" : "forward";
-}
-
-function handleJoyMove(clientX, clientY) {
-  const rect = joystick.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-  let dx = clientX - cx;
-  let dy = clientY - cy;
-  const radius = Math.min(rect.width, rect.height) / 2 - (knob.offsetWidth / 2);
-  const dist = Math.hypot(dx, dy);
-  if (dist > radius) {
-    const scale = radius / dist;
-    dx *= scale; dy *= scale;
-  }
-  setKnob(dx, dy);
-  const cmd = computeCmd(dx, dy, Math.max(12, radius * 0.18));
-  if (cmd && cmd !== lastJoyCmd) {
-    lastJoyCmd = cmd;
-    vibrate(10);
-    send(cmd);
-  } else if (!cmd && lastJoyCmd) {
-    lastJoyCmd = null;
-    vibrate(18);
-    stop();
-  }
-}
-
-function resetKnob() {
-  knob.style.transform = "translate(-50%,-50%)"; // for mobile size variant
-  // For desktop size, center using zero offset
-  knob.style.left = "50%"; knob.style.top = "50%";
-}
-
-joystick.addEventListener("touchstart", (e) => {
-  joyActive = true;
-  const t = e.touches[0];
-  handleJoyMove(t.clientX, t.clientY);
-}, { passive: true });
-
-joystick.addEventListener("touchmove", (e) => {
-  if (!joyActive) return;
-  const t = e.touches[0];
-  handleJoyMove(t.clientX, t.clientY);
-}, { passive: true });
-
-joystick.addEventListener("touchend", () => {
-  joyActive = false;
-  lastJoyCmd = null;
-  vibrate(25);
-  stop();
-  // snap back
-  knob.style.transform = "translate(-50%,-50%)";
-});
-
-// Mouse support (optional)
-joystick.addEventListener("mousedown", (e) => {
-  joyActive = true;
-  handleJoyMove(e.clientX, e.clientY);
-});
-joystick.addEventListener("mousemove", (e) => {
-  if (!joyActive) return;
-  handleJoyMove(e.clientX, e.clientY);
-});
-joystick.addEventListener("mouseup", () => {
-  if (!joyActive) return;
-  joyActive = false; lastJoyCmd = null; vibrate(20); stop(); knob.style.transform = "translate(-50%,-50%)";
-});
-joystick.addEventListener("mouseleave", () => {
-  if (!joyActive) return;
-  joyActive = false; lastJoyCmd = null; stop(); knob.style.transform = "translate(-50%,-50%)";
-});
-
-// Keyboard controls (arrow keys + WASD)
-const keyToCmd = {
+// ===== KEYBOARD SUPPORT =====
+const keyMap = {
   ArrowUp: "forward", KeyW: "forward",
   ArrowDown: "backward", KeyS: "backward",
   ArrowLeft: "left", KeyA: "left",
   ArrowRight: "right", KeyD: "right"
 };
+let activeKey = null;
 
-let activeKeyCmd = null;
-
-document.addEventListener("keydown", (e) => {
-  const code = e.code in keyToCmd ? e.code : e.key;
-  const cmd = keyToCmd[code];
-  if (!cmd) return;
-  if (activeKeyCmd === cmd) return; // prevent repeats when holding key
-  activeKeyCmd = cmd;
-  vibrate(10);
-  send(cmd);
+document.addEventListener("keydown", e => {
+  const cmd = keyMap[e.code];
+  if (!cmd || cmd === activeKey) return;
+  activeKey = cmd; vibrate(10); send(cmd);
 });
-
-document.addEventListener("keyup", (e) => {
-  const code = e.code in keyToCmd ? e.code : e.key;
-  if (!keyToCmd[code]) return;
-  activeKeyCmd = null;
-  vibrate(20);
-  stop();
+document.addEventListener("keyup", e => {
+  if (keyMap[e.code]) { activeKey = null; vibrate(15); stop(); }
 });
+</script>
+</body>
+</html>
