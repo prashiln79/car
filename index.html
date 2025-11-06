@@ -36,7 +36,7 @@ button:active { transform: translateY(3px); }
 
 .stage {
   position: relative;
-  width: 520px; height: 300px;
+  width: min(92vw, 560px); height: clamp(220px, 52vh, 420px);
   margin: 24px 0 8px;
   border-radius: 16px;
   background: #f5f5f5;
@@ -51,7 +51,7 @@ button:active { transform: translateY(3px); }
 .car {
   position: absolute;
   width: 56px; height: 32px;
-  transform: translate(232px, 134px) rotate(0deg);
+  transform: translate(0px, 0px) rotate(0deg);
   transform-origin: 50% 50%;
 }
 .car-body {
@@ -72,6 +72,16 @@ button:active { transform: translateY(3px); }
   color: #333; font-size: 14px; margin-bottom: 10px;
 }
 .hint { color: #555; font-size: 13px; }
+
+@media (max-width: 600px) {
+  body { height: auto; padding: 12px; }
+  h2 { font-size: 20px; margin-bottom: 12px; }
+  .controls { gap: 10px; }
+  button { width: 28vw; height: 60px; font-size: 16px; }
+  #stop { width: 28vw; }
+  .hud { font-size: 13px; }
+  .hint { font-size: 12px; }
+}
 </style>
 </head>
 <body>
@@ -138,14 +148,23 @@ function stop() { send("stop"); }
 // Animation and keyboard controls
 const carEl = document.getElementById("car");
 const stageEl = document.querySelector(".stage");
-let posX = 232; // starting translateX (matches CSS)
-let posY = 134; // starting translateY (matches CSS)
+const carW = 56, carH = 32, margin = 8;
+let posX = 0; // will be centered on load
+let posY = 0; // will be centered on load
 let angleDeg = 0;
 let reqId = null;
 let activeDir = null; // "forward" | "backward" | "left" | "right" | null
 const speed = 220; // px per second
 
 function clamp(val, min, max){ return Math.max(min, Math.min(max, val)); }
+
+function centerCar(){
+  const w = stageEl.clientWidth;
+  const h = stageEl.clientHeight;
+  posX = (w - carW) / 2;
+  posY = (h - carH) / 2;
+  carEl.style.transform = `translate(${posX}px, ${posY}px) rotate(${angleDeg}deg)`;
+}
 
 function setDirection(dir){
   if(activeDir === dir) return;
@@ -186,10 +205,10 @@ function loop(ts){
   posY += vy * speed * dt;
 
   // bounds within stage inner area (approx considering car size)
-  const maxX = stageEl.clientWidth - 56 - 8; // car width 56 + margin
-  const maxY = stageEl.clientHeight - 32 - 8; // car height 32 + margin
-  posX = clamp(posX, 8, maxX);
-  posY = clamp(posY, 8, maxY);
+  const maxX = stageEl.clientWidth - carW - margin;
+  const maxY = stageEl.clientHeight - carH - margin;
+  posX = clamp(posX, margin, maxX);
+  posY = clamp(posY, margin, maxY);
 
   carEl.style.transform = `translate(${posX}px, ${posY}px) rotate(${angleDeg}deg)`;
   reqId = requestAnimationFrame(loop);
@@ -223,6 +242,22 @@ window.addEventListener("keyup", (e)=>{
     if(dir){ setDirection(dir); return; }
   }
   endMove();
+});
+
+// Initialize position and handle resize
+window.addEventListener("load", ()=>{
+  centerCar();
+});
+window.addEventListener("resize", ()=>{
+  // If not moving, recenter; otherwise just clamp to new bounds
+  if(!activeDir){ centerCar(); }
+  else {
+    const maxX = stageEl.clientWidth - carW - margin;
+    const maxY = stageEl.clientHeight - carH - margin;
+    posX = clamp(posX, margin, maxX);
+    posY = clamp(posY, margin, maxY);
+    carEl.style.transform = `translate(${posX}px, ${posY}px) rotate(${angleDeg}deg)`;
+  }
 });
 </script>
 </body>
