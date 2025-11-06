@@ -60,7 +60,8 @@ button:active { transform: scale(0.96); }
   box-shadow: 0 5px #1565c0;
 }
 
-#lightOff { background-color: #555; box-shadow: 0 5px #333; }
+#lightToggle { background-color: #555; box-shadow: 0 5px #333; }
+#lightToggle.active { background-color: #ff9800; box-shadow: 0 5px #f57c00; }
 #gyroToggle { background-color: #9c27b0; box-shadow: 0 5px #6a1b9a; }
 #gyroToggle.active { background-color: #4caf50; box-shadow: 0 5px #388e3c; }
 
@@ -89,8 +90,7 @@ button:active { transform: scale(0.96); }
   </div>
 
   <div class="extra-controls">
-    <button id="lightOn">💡 Light On</button>
-    <button id="lightOff">💤 Light Off</button>
+    <button id="lightToggle">💤 Light Off</button>
     <button id="gyroToggle">📱 Enable Gyro</button>
   </div>
 
@@ -163,8 +163,21 @@ function evaluateMotion() {
 document.getElementById("stop").onclick = () => { pressed.clear(); stop(); };
 
 // ===== LIGHT CONTROLS =====
-document.getElementById("lightOn").onclick = () => send("light_on");
-document.getElementById("lightOff").onclick = () => send("light_off");
+let lightOn = false;
+const lightToggleBtn = document.getElementById("lightToggle");
+
+lightToggleBtn.onclick = () => {
+  lightOn = !lightOn;
+  if (lightOn) {
+    lightToggleBtn.textContent = "💡 Light On";
+    lightToggleBtn.classList.add("active");
+    send("light_on");
+  } else {
+    lightToggleBtn.textContent = "💤 Light Off";
+    lightToggleBtn.classList.remove("active");
+    send("light_off");
+  }
+};
 
 // ===== SPEED CONTROL =====
 const speedSlider = document.getElementById("speed");
