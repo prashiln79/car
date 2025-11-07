@@ -133,12 +133,12 @@ function evaluateMotion() {
   const l = pressed.has("left");
   const r = pressed.has("right");
 
-  if (f && l) cmd = "forward_left";
-  else if (f && r) cmd = "forward_right";
-  else if (b && l) cmd = "backward_left";
-  else if (b && r) cmd = "backward_right";
-  else if (f) cmd = "forward";
-  else if (b) cmd = "backward";
+  if (f && l) cmd = "backward_left";
+  else if (f && r) cmd = "backward_right";
+  else if (b && l) cmd = "forward_left";
+  else if (b && r) cmd = "forward_right";
+  else if (f) cmd = "backward";
+  else if (b) cmd = "forward";
   else if (l) cmd = "left";
   else if (r) cmd = "right";
   else cmd = "stop";
