@@ -492,27 +492,28 @@ function initJoystick() {
       // Forward/Backward: 0° = forward, 180° = backward
       // Left/Right: 90° = right, 270° = left
       // Using expanded ranges to allow diagonal movements
+      // NOTE: Forward/Backward swapped with Left/Right
       
-      // Forward: covers 315°-45° (wrapping around) - overlaps with left/right for diagonals
+      // Right: covers 315°-45° (wrapping around) - overlaps with forward/backward for diagonals
       if (angle >= 315 || angle <= 45) {
-        joystickPressed.add("forward");
-        pressed.add("forward");
-      }
-      // Backward: covers 135°-225° - overlaps with left/right for diagonals
-      if (angle >= 135 && angle <= 225) {
-        joystickPressed.add("backward");
-        pressed.add("backward");
-      }
-
-      // Right: covers 45°-135° - overlaps with forward/backward for diagonals
-      if (angle >= 45 && angle <= 135) {
         joystickPressed.add("right");
         pressed.add("right");
       }
-      // Left: covers 225°-315° - overlaps with forward/backward for diagonals
-      if (angle >= 225 && angle <= 315) {
+      // Left: covers 135°-225° - overlaps with forward/backward for diagonals
+      if (angle >= 135 && angle <= 225) {
         joystickPressed.add("left");
         pressed.add("left");
+      }
+
+      // Forward: covers 45°-135° - overlaps with left/right for diagonals
+      if (angle >= 45 && angle <= 135) {
+        joystickPressed.add("forward");
+        pressed.add("forward");
+      }
+      // Backward: covers 225°-315° - overlaps with left/right for diagonals
+      if (angle >= 225 && angle <= 315) {
+        joystickPressed.add("backward");
+        pressed.add("backward");
       }
     }
 
