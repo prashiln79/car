@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>MQTT Car Control</title>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.1/dist/nipplejs.min.js"></script>
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -71,6 +72,31 @@ button:active { transform: scale(0.96); }
 .speed-control input { width: 220px; }
 .speed-value { font-weight: 600; margin-top: 4px; color: #333; }
 
+.joystick-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+#joystick-zone {
+  width: 200px;
+  height: 200px;
+  position: relative;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.joystick-label {
+  text-align: center;
+  margin-top: 10px;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 @media (max-width: 600px) {
   button { width: 28vw; height: 70px; font-size: 16px; }
   #stop { width: 28vw; }
@@ -98,6 +124,13 @@ button:active { transform: scale(0.96); }
     <label for="speed">Speed</label><br>
     <input type="range" id="speed" min="0" max="255" value="255">
     <div class="speed-value">Speed: <span id="speedVal">255</span></div>
+  </div>
+
+  <div class="joystick-container">
+    <div>
+      <div id="joystick-zone"></div>
+      <div class="joystick-label">Virtual Joystick</div>
+    </div>
   </div>
 
 <script>
@@ -204,6 +237,81 @@ document.addEventListener("keyup", e => {
   const cmd = keyMap[e.code];
   if (cmd && pressed.has(cmd)) { pressed.delete(cmd); evaluateMotion(); }
 });
+
+// ===== JOYSTICK CONTROL =====
+let joystickPressed = new Set();
+let joystickManager = null;
+
+function initJoystick() {
+  const zone = document.getElementById("joystick-zone");
+  joystickManager = nipplejs.create({
+    zone: zone,
+    mode: 'static',
+    position: { left: '50%', top: '50%' },
+    color: '#4CAF50',
+    size: 120,
+    threshold: 0.1,
+    fadeTime: 250
+  });
+
+  joystickManager.on('start', () => {
+    console.log("🎮 Joystick started");
+    vibrate(50);
+  });
+
+  joystickManager.on('move', (evt, data) => {
+    // Clear previous joystick-based commands
+    joystickPressed.forEach(key => pressed.delete(key));
+    joystickPressed.clear();
+
+    const angle = data.angle.degree;
+    const force = data.force;
+
+    // Only trigger movement if force is significant
+    if (force > 0.3) {
+      // Determine direction based on angle (0° = up/north, clockwise)
+      // Forward/Backward: 0° = forward, 180° = backward
+      // Left/Right: 90° = right, 270° = left
+      // Using expanded ranges to allow diagonal movements
+      
+      // Forward: covers 315°-45° (wrapping around) - overlaps with left/right for diagonals
+      if (angle >= 315 || angle <= 45) {
+        joystickPressed.add("forward");
+        pressed.add("forward");
+      }
+      // Backward: covers 135°-225° - overlaps with left/right for diagonals
+      if (angle >= 135 && angle <= 225) {
+        joystickPressed.add("backward");
+        pressed.add("backward");
+      }
+
+      // Right: covers 45°-135° - overlaps with forward/backward for diagonals
+      if (angle >= 45 && angle <= 135) {
+        joystickPressed.add("right");
+        pressed.add("right");
+      }
+      // Left: covers 225°-315° - overlaps with forward/backward for diagonals
+      if (angle >= 225 && angle <= 315) {
+        joystickPressed.add("left");
+        pressed.add("left");
+      }
+    }
+
+    evaluateMotion();
+  });
+
+  joystickManager.on('end', () => {
+    console.log("🎮 Joystick released");
+    vibrate(30);
+    // Clear joystick-based commands
+    joystickPressed.forEach(key => pressed.delete(key));
+    joystickPressed.clear();
+    evaluateMotion();
+  });
+}
+
+// Initialize joystick when page loads
+initJoystick();
 
 // ===== GYROSCOPE CONTROL =====
 let gyroEnabled = false;
