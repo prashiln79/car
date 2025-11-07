@@ -89,12 +89,136 @@ button:active { transform: scale(0.96); }
   border: 2px solid rgba(0, 0, 0, 0.1);
 }
 
+.joystick-directions {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.direction-label {
+  position: absolute;
+  font-size: 18px;
+  font-weight: bold;
+  color: rgba(76, 175, 80, 0.7);
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+  transition: color 0.2s, transform 0.2s;
+}
+
+.direction-label.active {
+  color: #4CAF50;
+  text-shadow: 2px 2px 4px rgba(76, 175, 80, 0.5);
+}
+
+.direction-label.forward { 
+  top: 5px; 
+  left: 50%; 
+  transform: translateX(-50%);
+}
+.direction-label.forward.active { 
+  transform: translateX(-50%) scale(1.3);
+}
+
+.direction-label.backward { 
+  bottom: 5px; 
+  left: 50%; 
+  transform: translateX(-50%);
+}
+.direction-label.backward.active { 
+  transform: translateX(-50%) scale(1.3);
+}
+
+.direction-label.left { 
+  left: 5px; 
+  top: 50%; 
+  transform: translateY(-50%);
+}
+.direction-label.left.active { 
+  transform: translateY(-50%) scale(1.3);
+}
+
+.direction-label.right { 
+  right: 5px; 
+  top: 50%; 
+  transform: translateY(-50%);
+}
+.direction-label.right.active { 
+  transform: translateY(-50%) scale(1.3);
+}
+
+.direction-indicator {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.direction-indicator.active {
+  opacity: 1;
+}
+
+.direction-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.arrow-forward {
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 15px solid #4CAF50;
+}
+
+.arrow-backward {
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 15px solid #4CAF50;
+}
+
+.arrow-left {
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 15px solid #4CAF50;
+}
+
+.arrow-right {
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 15px solid #4CAF50;
+}
+
 .joystick-label {
   text-align: center;
   margin-top: 10px;
   color: #333;
   font-size: 14px;
   font-weight: 600;
+}
+
+.orientation-info {
+  text-align: center;
+  margin-top: 5px;
+  color: #666;
+  font-size: 12px;
 }
 
 @media (max-width: 600px) {
@@ -128,8 +252,22 @@ button:active { transform: scale(0.96); }
 
   <div class="joystick-container">
     <div>
-      <div id="joystick-zone"></div>
+      <div id="joystick-zone">
+        <div class="joystick-directions">
+          <div class="direction-label forward">↑</div>
+          <div class="direction-label backward">↓</div>
+          <div class="direction-label left">←</div>
+          <div class="direction-label right">→</div>
+        </div>
+        <div class="direction-indicator" id="direction-indicator">
+          <div class="direction-arrow arrow-forward"></div>
+          <div class="direction-arrow arrow-backward"></div>
+          <div class="direction-arrow arrow-left"></div>
+          <div class="direction-arrow arrow-right"></div>
+        </div>
+      </div>
       <div class="joystick-label">Virtual Joystick</div>
+      <div class="orientation-info" id="orientation-info">Portrait</div>
     </div>
   </div>
 
@@ -241,6 +379,84 @@ document.addEventListener("keyup", e => {
 // ===== JOYSTICK CONTROL =====
 let joystickPressed = new Set();
 let joystickManager = null;
+let deviceOrientation = 0; // 0, 90, 180, 270 degrees
+
+// Get device orientation
+function getDeviceOrientation() {
+  let orientation = 0;
+  
+  if (screen.orientation && screen.orientation.angle !== undefined) {
+    // Modern API: returns 0, 90, 180, 270
+    orientation = screen.orientation.angle;
+  } else if (window.orientation !== undefined) {
+    // Legacy API: returns 0, 90, -90, 180
+    orientation = window.orientation;
+    // Convert -90 to 270 for consistency
+    if (orientation < 0) orientation += 360;
+  }
+  
+  return orientation;
+}
+
+// Update orientation info display
+function updateOrientationInfo() {
+  const orientation = getDeviceOrientation();
+  const infoEl = document.getElementById("orientation-info");
+  let orientationText = "";
+  
+  if (orientation === 0 || orientation === 180) {
+    orientationText = "Portrait";
+  } else {
+    orientationText = "Landscape";
+  }
+  
+  infoEl.textContent = `${orientationText} (${orientation}°)`;
+  deviceOrientation = orientation;
+}
+
+// Adjust angle based on device orientation
+function adjustAngleForOrientation(angle) {
+  // nipplejs gives angle relative to screen (0° = top of screen)
+  // We want angle relative to device physical orientation (0° = top of device)
+  // When device rotates clockwise, screen rotates counter-clockwise relative to device
+  // So we subtract the orientation to compensate
+  let adjustedAngle = angle - deviceOrientation;
+  
+  // Normalize to 0-360 range
+  while (adjustedAngle < 0) adjustedAngle += 360;
+  while (adjustedAngle >= 360) adjustedAngle -= 360;
+  
+  return adjustedAngle;
+}
+
+// Update visual direction indicators
+function updateDirectionIndicators(directions) {
+  const labels = document.querySelectorAll('.direction-label');
+  labels.forEach(label => {
+    label.classList.remove('active');
+  });
+  
+  if (directions.has('forward')) {
+    document.querySelector('.direction-label.forward').classList.add('active');
+  }
+  if (directions.has('backward')) {
+    document.querySelector('.direction-label.backward').classList.add('active');
+  }
+  if (directions.has('left')) {
+    document.querySelector('.direction-label.left').classList.add('active');
+  }
+  if (directions.has('right')) {
+    document.querySelector('.direction-label.right').classList.add('active');
+  }
+  
+  // Show/hide direction indicator overlay
+  const indicator = document.getElementById('direction-indicator');
+  if (directions.size > 0) {
+    indicator.classList.add('active');
+  } else {
+    indicator.classList.remove('active');
+  }
+}
 
 function initJoystick() {
   const zone = document.getElementById("joystick-zone");
@@ -264,8 +480,11 @@ function initJoystick() {
     joystickPressed.forEach(key => pressed.delete(key));
     joystickPressed.clear();
 
-    const angle = data.angle.degree;
+    const rawAngle = data.angle.degree;
     const force = data.force;
+    
+    // Adjust angle for device orientation
+    const angle = adjustAngleForOrientation(rawAngle);
 
     // Only trigger movement if force is significant
     if (force > 0.3) {
@@ -297,6 +516,9 @@ function initJoystick() {
       }
     }
 
+    // Update visual indicators
+    updateDirectionIndicators(joystickPressed);
+    
     evaluateMotion();
   });
 
@@ -306,12 +528,27 @@ function initJoystick() {
     // Clear joystick-based commands
     joystickPressed.forEach(key => pressed.delete(key));
     joystickPressed.clear();
+    updateDirectionIndicators(new Set());
     evaluateMotion();
   });
 }
 
 // Initialize joystick when page loads
 initJoystick();
+
+// Handle orientation changes
+updateOrientationInfo();
+window.addEventListener('orientationchange', () => {
+  setTimeout(updateOrientationInfo, 100);
+});
+window.addEventListener('resize', () => {
+  setTimeout(updateOrientationInfo, 100);
+});
+
+// Also listen for screen orientation API if available
+if (screen.orientation) {
+  screen.orientation.addEventListener('change', updateOrientationInfo);
+}
 
 // ===== GYROSCOPE CONTROL =====
 let gyroEnabled = false;
