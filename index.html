@@ -61,6 +61,8 @@ button:active { transform: scale(0.96); }
   box-shadow: 0 5px #1565c0;
 }
 
+#controlModeToggle { background-color: #ff5722; box-shadow: 0 5px #d84315; }
+#controlModeToggle.active { background-color: #4caf50; box-shadow: 0 5px #388e3c; }
 #lightToggle { background-color: #555; box-shadow: 0 5px #333; }
 #lightToggle.active { background-color: #ff9800; box-shadow: 0 5px #f57c00; }
 #gyroToggle { background-color: #9c27b0; box-shadow: 0 5px #6a1b9a; }
@@ -78,6 +80,14 @@ button:active { transform: scale(0.96); }
   justify-content: center;
   align-items: center;
   position: relative;
+}
+
+.joystick-container.hidden {
+  display: none;
+}
+
+.controls.hidden {
+  display: none;
 }
 
 #joystick-zone {
@@ -240,6 +250,7 @@ button:active { transform: scale(0.96); }
   </div>
 
   <div class="extra-controls">
+    <button id="controlModeToggle">🎮 Joystick Mode</button>
     <button id="lightToggle">💤 Light Off</button>
     <button id="gyroToggle">📱 Enable Gyro</button>
   </div>
@@ -250,7 +261,7 @@ button:active { transform: scale(0.96); }
     <div class="speed-value">Speed: <span id="speedVal">255</span></div>
   </div>
 
-  <div class="joystick-container">
+  <div class="joystick-container hidden">
     <div>
       <div id="joystick-zone">
         <div class="joystick-directions">
@@ -317,18 +328,77 @@ function evaluateMotion() {
   send(cmd);
 }
 
+// ===== CONTROL MODE TOGGLE =====
+let controlMode = "button"; // "button" or "joystick"
+const controlModeToggleBtn = document.getElementById("controlModeToggle");
+const controlsDiv = document.querySelector(".controls");
+const joystickContainer = document.querySelector(".joystick-container");
+
+function updateControlMode() {
+  if (controlMode === "joystick") {
+    controlModeToggleBtn.textContent = "🎮 Joystick Mode";
+    controlModeToggleBtn.classList.add("active");
+    controlsDiv.classList.add("hidden");
+    joystickContainer.classList.remove("hidden");
+  } else {
+    controlModeToggleBtn.textContent = "🔘 Button Mode";
+    controlModeToggleBtn.classList.remove("active");
+    controlsDiv.classList.remove("hidden");
+    joystickContainer.classList.add("hidden");
+  }
+  // Clear any active pressed states when switching modes
+  pressed.clear();
+  joystickPressed.clear();
+  stop();
+}
+
+controlModeToggleBtn.onclick = () => {
+  controlMode = controlMode === "button" ? "joystick" : "button";
+  updateControlMode();
+};
+
+// Initialize control mode display
+updateControlMode();
+
 // ===== BUTTON CONTROLS =====
 ["forward","backward","left","right"].forEach(id => {
   const btn = document.getElementById(id);
 
   // Mouse controls
-  btn.onmousedown = () => { pressed.add(id); evaluateMotion(); };
-  btn.onmouseup = () => { pressed.delete(id); evaluateMotion(); };
-  btn.onmouseleave = () => { pressed.delete(id); evaluateMotion(); };
+  btn.onmousedown = () => { 
+    if (controlMode === "button") {
+      pressed.add(id); 
+      evaluateMotion(); 
+    }
+  };
+  btn.onmouseup = () => { 
+    if (controlMode === "button") {
+      pressed.delete(id); 
+      evaluateMotion(); 
+    }
+  };
+  btn.onmouseleave = () => { 
+    if (controlMode === "button") {
+      pressed.delete(id); 
+      evaluateMotion(); 
+    }
+  };
 
   // Touch controls
-  btn.ontouchstart = e => { e.preventDefault(); pressed.add(id); evaluateMotion(); };
-  btn.ontouchend = e => { e.preventDefault(); pressed.delete(id); evaluateMotion(); };
+  btn.ontouchstart = e => { 
+    if (controlMode === "button") {
+      e.preventDefault(); 
+      pressed.add(id); 
+      evaluateMotion(); 
+    }
+  };
+  btn.ontouchend = e => { 
+    if (controlMode === "button") {
+      e.preventDefault(); 
+      pressed.delete(id); 
+      evaluateMotion(); 
+    }
+  };
 });
 
 document.getElementById("stop").onclick = () => { pressed.clear(); stop(); };
@@ -367,11 +437,13 @@ const keyMap = {
 };
 
 document.addEventListener("keydown", e => {
+  if (controlMode !== "button") return;
   const cmd = keyMap[e.code];
   if (!cmd) return;
   if (!pressed.has(cmd)) { pressed.add(cmd); evaluateMotion(); }
 });
 document.addEventListener("keyup", e => {
+  if (controlMode !== "button") return;
   const cmd = keyMap[e.code];
   if (cmd && pressed.has(cmd)) { pressed.delete(cmd); evaluateMotion(); }
 });
@@ -476,6 +548,8 @@ function initJoystick() {
   });
 
   joystickManager.on('move', (evt, data) => {
+    if (controlMode !== "joystick") return;
+    
     // Clear previous joystick-based commands
     joystickPressed.forEach(key => pressed.delete(key));
     joystickPressed.clear();
@@ -524,6 +598,7 @@ function initJoystick() {
   });
 
   joystickManager.on('end', () => {
+    if (controlMode !== "joystick") return;
     console.log("🎮 Joystick released");
     vibrate(30);
     // Clear joystick-based commands
