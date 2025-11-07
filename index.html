@@ -4,21 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>MQTT Car Control</title>
+
+<!-- External Libraries -->
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.1/dist/nipplejs.min.js"></script>
+
 <style>
 body {
   font-family: Arial, sans-serif;
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; height: 100vh;
   background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-  margin: 0;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100vh; margin: 0;
 }
-h2 { color: #333; margin-bottom: 10px; text-align: center; }
-
-.hud {
-  color: #333; font-size: 14px; margin-bottom: 15px; text-align: center;
-}
+h2 { color: #333; text-align: center; margin-bottom: 6px; }
+.hud { color: #444; font-size: 14px; text-align: center; margin-bottom: 16px; }
 
 .controls {
   display: grid;
@@ -26,11 +25,8 @@ h2 { color: #333; margin-bottom: 10px; text-align: center; }
     ". forward ."
     "left stop right"
     ". backward .";
-  gap: 14px;
-  justify-content: center;
-  align-items: center;
+  gap: 12px;
 }
-
 #forward { grid-area: forward; }
 #backward { grid-area: backward; }
 #left { grid-area: left; }
@@ -38,210 +34,68 @@ h2 { color: #333; margin-bottom: 10px; text-align: center; }
 #stop { grid-area: stop; }
 
 button {
-  width: 110px; height: 75px;
+  width: 110px; height: 70px;
+  border: none; border-radius: 14px;
   font-size: 17px; font-weight: 600;
-  border: none; border-radius: 16px;
-  background-color: #4CAF50; color: white;
-  box-shadow: 0 6px #388E3C;
-  transition: 0.15s ease;
-  touch-action: manipulation;
+  color: white; background: #4CAF50;
+  box-shadow: 0 5px #388E3C;
+  transition: 0.2s ease;
   user-select: none;
+  touch-action: manipulation;
 }
 button:active { transform: scale(0.96); }
-#stop { background-color: #f44336; box-shadow: 0 6px #c62828; }
+#stop { background: #f44336; box-shadow: 0 5px #c62828; }
 
 .extra-controls {
-  display: flex; gap: 10px; flex-wrap: wrap;
-  justify-content: center; margin-top: 10px;
+  margin-top: 12px; display: flex; flex-wrap: wrap;
+  gap: 10px; justify-content: center;
 }
-
 .extra-controls button {
-  width: 120px; height: 60px;
-  background-color: #2196f3;
-  box-shadow: 0 5px #1565c0;
+  width: 130px; height: 60px; background: #2196f3; box-shadow: 0 5px #1565c0;
 }
+#controlModeToggle { background: #ff5722; box-shadow: 0 5px #d84315; }
+#controlModeToggle.active { background: #4caf50; box-shadow: 0 5px #388e3c; }
+#lightToggle.active { background: #ff9800; box-shadow: 0 5px #f57c00; }
+#gyroToggle { background: #9c27b0; box-shadow: 0 5px #6a1b9a; }
+#gyroToggle.active { background: #4caf50; box-shadow: 0 5px #388e3c; }
 
-#controlModeToggle { background-color: #ff5722; box-shadow: 0 5px #d84315; }
-#controlModeToggle.active { background-color: #4caf50; box-shadow: 0 5px #388e3c; }
-#lightToggle { background-color: #555; box-shadow: 0 5px #333; }
-#lightToggle.active { background-color: #ff9800; box-shadow: 0 5px #f57c00; }
-#gyroToggle { background-color: #9c27b0; box-shadow: 0 5px #6a1b9a; }
-#gyroToggle.active { background-color: #4caf50; box-shadow: 0 5px #388e3c; }
-
-.speed-control {
-  margin-top: 18px; text-align: center;
-}
-.speed-control input { width: 220px; }
-.speed-value { font-weight: 600; margin-top: 4px; color: #333; }
+.speed-control { margin-top: 18px; text-align: center; }
+.speed-control input { width: 240px; }
+.speed-value { font-weight: 600; color: #333; margin-top: 4px; }
 
 .joystick-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
+  margin-top: 25px; display: none; justify-content: center;
+  transition: 0.3s ease; opacity: 0;
 }
-
-.joystick-container.hidden {
-  display: none;
+.joystick-container.active {
+  display: flex; opacity: 1;
 }
-
-.controls.hidden {
-  display: none;
-}
-
-#joystick-zone {
-  width: 200px;
-  height: 200px;
-  position: relative;
-  background: rgba(255, 255, 255, 0.3);
+.joystick-zone {
+  width: 150px;
+  height: 150px;
+  position: relative;  /* ✅ important for nipplejs positioning */
+  border: 2px solid rgba(0, 0, 0, 0.2);
   border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.3);
+  margin: 0 10px;
 }
-
-.joystick-directions {
-  position: absolute;
-  width: 200px;
-  height: 200px;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-}
-
-.direction-label {
-  position: absolute;
-  font-size: 18px;
-  font-weight: bold;
-  color: rgba(76, 175, 80, 0.7);
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
-  transition: color 0.2s, transform 0.2s;
-}
-
-.direction-label.active {
-  color: #4CAF50;
-  text-shadow: 2px 2px 4px rgba(76, 175, 80, 0.5);
-}
-
-.direction-label.forward { 
-  top: 5px; 
-  left: 50%; 
-  transform: translateX(-50%);
-}
-.direction-label.forward.active { 
-  transform: translateX(-50%) scale(1.3);
-}
-
-.direction-label.backward { 
-  bottom: 5px; 
-  left: 50%; 
-  transform: translateX(-50%);
-}
-.direction-label.backward.active { 
-  transform: translateX(-50%) scale(1.3);
-}
-
-.direction-label.left { 
-  left: 5px; 
-  top: 50%; 
-  transform: translateY(-50%);
-}
-.direction-label.left.active { 
-  transform: translateY(-50%) scale(1.3);
-}
-
-.direction-label.right { 
-  right: 5px; 
-  top: 50%; 
-  transform: translateY(-50%);
-}
-.direction-label.right.active { 
-  transform: translateY(-50%) scale(1.3);
-}
-
-.direction-indicator {
-  position: absolute;
-  width: 200px;
-  height: 200px;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.direction-indicator.active {
-  opacity: 1;
-}
-
-.direction-arrow {
-  position: absolute;
-  width: 0;
-  height: 0;
-  border-style: solid;
-}
-
-.arrow-forward {
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 15px solid #4CAF50;
-}
-
-.arrow-backward {
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-top: 15px solid #4CAF50;
-}
-
-.arrow-left {
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 15px solid #4CAF50;
-}
-
-.arrow-right {
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-left: 15px solid #4CAF50;
-}
-
-.joystick-label {
-  text-align: center;
-  margin-top: 10px;
-  color: #333;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.orientation-info {
-  text-align: center;
-  margin-top: 5px;
-  color: #666;
-  font-size: 12px;
-}
+.joystick-label { text-align: center; margin-top: 8px; font-size: 14px; color: #333; }
 
 @media (max-width: 600px) {
-  button { width: 28vw; height: 70px; font-size: 16px; }
+  button { width: 26vw; height: 65px; font-size: 15px; }
   #stop { width: 28vw; }
+  .extra-controls button { width: 42vw; height: 60px; }
+  .joystick-zone { width: 120px; height: 120px; }
 }
 </style>
 </head>
+
 <body>
   <h2>🚗 MQTT WiFi Car Control</h2>
-  <div class="hud">Hold to move — combinations like Forward+Left are supported</div>
+  <div class="hud">Tap or hold buttons / use joystick / tilt phone</div>
 
-  <div class="controls">
+  <!-- Button Control Grid -->
+  <div class="controls" id="buttonControls">
     <button id="forward">Forward</button>
     <button id="backward">Backward</button>
     <button id="left">Left</button>
@@ -249,474 +103,191 @@ button:active { transform: scale(0.96); }
     <button id="stop">Stop</button>
   </div>
 
+  <!-- Extra Controls -->
   <div class="extra-controls">
     <button id="controlModeToggle">🎮 Joystick Mode</button>
     <button id="lightToggle">💤 Light Off</button>
     <button id="gyroToggle">📱 Enable Gyro</button>
   </div>
 
+  <!-- Speed Control -->
   <div class="speed-control">
     <label for="speed">Speed</label><br>
     <input type="range" id="speed" min="0" max="255" value="255">
     <div class="speed-value">Speed: <span id="speedVal">255</span></div>
   </div>
 
-  <div class="joystick-container hidden">
+  <!-- Dual Joystick -->
+  <div class="joystick-container" id="joystickContainer">
     <div>
-      <div id="joystick-zone">
-        <div class="joystick-directions">
-          <div class="direction-label forward">↑</div>
-          <div class="direction-label backward">↓</div>
-          <div class="direction-label left">←</div>
-          <div class="direction-label right">→</div>
-        </div>
-        <div class="direction-indicator" id="direction-indicator">
-          <div class="direction-arrow arrow-forward"></div>
-          <div class="direction-arrow arrow-backward"></div>
-          <div class="direction-arrow arrow-left"></div>
-          <div class="direction-arrow arrow-right"></div>
-        </div>
-      </div>
-      <div class="joystick-label">Virtual Joystick</div>
-      <div class="orientation-info" id="orientation-info">Portrait</div>
+      <div id="joystick-left" class="joystick-zone"></div>
+      <div class="joystick-label">Throttle</div>
+    </div>
+    <div>
+      <div id="joystick-right" class="joystick-zone"></div>
+      <div class="joystick-label">Steering</div>
     </div>
   </div>
 
 <script>
-// ===== MQTT CONFIG =====
-const options = {
+/* ------------------ MQTT CONFIG ------------------ */
+const client = mqtt.connect("wss://f31f59e872194305880111b99a249d12.s1.eu.hivemq.cloud:8884/mqtt", {
   username: "Prashil",
   password: "Prashil@n79",
-  clean: true,
   connectTimeout: 4000,
-  reconnectPeriod: 2000
-};
-const client = mqtt.connect("wss://f31f59e872194305880111b99a249d12.s1.eu.hivemq.cloud:8884/mqtt", options);
-
-client.on("connect", () => {
-  console.log("✅ Connected to HiveMQ Cloud");
-  client.subscribe("car/status");
+  reconnectPeriod: 2000,
+  clean: true
 });
-client.on("message", (topic, message) => console.log(`📩 ${topic}: ${message.toString()}`));
+client.on("connect", () => console.log("✅ Connected to HiveMQ"));
+function send(cmd) { console.log("➡️", cmd); client.publish("car/control", cmd); }
 
-// ===== COMMAND SYSTEM =====
-let pressed = new Set();
-
-function vibrate(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
-function send(cmd) { console.log("🚀 Sending:", cmd); client.publish("car/control", cmd); }
-
-function stop() { send("stop"); }
-
-// Determine motion based on active pressed keys/buttons
-function evaluateMotion() {
-  let cmd = "";
-  const f = pressed.has("forward");
-  const b = pressed.has("backward");
-  const l = pressed.has("left");
-  const r = pressed.has("right");
-
-  if (f && l) cmd = "backward_left";
-  else if (f && r) cmd = "backward_right";
-  else if (b && l) cmd = "forward_left";
-  else if (b && r) cmd = "forward_right";
-  else if (f) cmd = "backward";
-  else if (b) cmd = "forward";
-  else if (l) cmd = "left";
-  else if (r) cmd = "right";
-  else cmd = "stop";
-
-  send(cmd);
-}
-
-// ===== CONTROL MODE TOGGLE =====
-let controlMode = "button"; // "button" or "joystick"
-const controlModeToggleBtn = document.getElementById("controlModeToggle");
-const controlsDiv = document.querySelector(".controls");
-const joystickContainer = document.querySelector(".joystick-container");
-
-function updateControlMode() {
-  if (controlMode === "joystick") {
-    controlModeToggleBtn.textContent = "🎮 Joystick Mode";
-    controlModeToggleBtn.classList.add("active");
-    controlsDiv.classList.add("hidden");
-    joystickContainer.classList.remove("hidden");
-  } else {
-    controlModeToggleBtn.textContent = "🔘 Button Mode";
-    controlModeToggleBtn.classList.remove("active");
-    controlsDiv.classList.remove("hidden");
-    joystickContainer.classList.add("hidden");
-  }
-  // Clear any active pressed states when switching modes
-  pressed.clear();
-  joystickPressed.clear();
-  stop();
-}
-
-controlModeToggleBtn.onclick = () => {
-  controlMode = controlMode === "button" ? "joystick" : "button";
-  updateControlMode();
-};
-
-// Initialize control mode display
-updateControlMode();
-
-// ===== BUTTON CONTROLS =====
-["forward","backward","left","right"].forEach(id => {
-  const btn = document.getElementById(id);
-
-  // Mouse controls
-  btn.onmousedown = () => { 
-    if (controlMode === "button") {
-      pressed.add(id); 
-      evaluateMotion(); 
-    }
-  };
-  btn.onmouseup = () => { 
-    if (controlMode === "button") {
-      pressed.delete(id); 
-      evaluateMotion(); 
-    }
-  };
-  btn.onmouseleave = () => { 
-    if (controlMode === "button") {
-      pressed.delete(id); 
-      evaluateMotion(); 
-    }
-  };
-
-  // Touch controls
-  btn.ontouchstart = e => { 
-    if (controlMode === "button") {
-      e.preventDefault(); 
-      pressed.add(id); 
-      evaluateMotion(); 
-    }
-  };
-  btn.ontouchend = e => { 
-    if (controlMode === "button") {
-      e.preventDefault(); 
-      pressed.delete(id); 
-      evaluateMotion(); 
-    }
-  };
-});
-
-document.getElementById("stop").onclick = () => { pressed.clear(); stop(); };
-
-// ===== LIGHT CONTROLS =====
-let lightOn = false;
-const lightToggleBtn = document.getElementById("lightToggle");
-
-lightToggleBtn.onclick = () => {
-  lightOn = !lightOn;
-  if (lightOn) {
-    lightToggleBtn.textContent = "💡 Light On";
-    lightToggleBtn.classList.add("active");
-    send("light_on");
-  } else {
-    lightToggleBtn.textContent = "💤 Light Off";
-    lightToggleBtn.classList.remove("active");
-    send("light_off");
-  }
-};
-
-// ===== SPEED CONTROL =====
-const speedSlider = document.getElementById("speed");
-const speedVal = document.getElementById("speedVal");
-speedSlider.oninput = () => {
-  speedVal.textContent = speedSlider.value;
-  send(`speed:${speedSlider.value}`);
-};
-
-// ===== KEYBOARD SUPPORT =====
-const keyMap = {
-  ArrowUp: "forward", KeyW: "forward",
-  ArrowDown: "backward", KeyS: "backward",
-  ArrowLeft: "left", KeyA: "left",
-  ArrowRight: "right", KeyD: "right"
-};
+/* ------------------ CORE CONTROL ------------------ */
+const pressed = new Set();
+const keyMap = { ArrowUp:"forward",KeyW:"forward",ArrowDown:"backward",KeyS:"backward",ArrowLeft:"left",KeyA:"left",ArrowRight:"right",KeyD:"right" };
 
 document.addEventListener("keydown", e => {
-  if (controlMode !== "button") return;
-  const cmd = keyMap[e.code];
-  if (!cmd) return;
+  const cmd = keyMap[e.code]; if (!cmd) return;
   if (!pressed.has(cmd)) { pressed.add(cmd); evaluateMotion(); }
 });
 document.addEventListener("keyup", e => {
-  if (controlMode !== "button") return;
   const cmd = keyMap[e.code];
-  if (cmd && pressed.has(cmd)) { pressed.delete(cmd); evaluateMotion(); }
+  if (cmd) { pressed.delete(cmd); evaluateMotion(); }
 });
 
-// ===== JOYSTICK CONTROL =====
-let joystickPressed = new Set();
-let joystickManager = null;
-let deviceOrientation = 0; // 0, 90, 180, 270 degrees
-
-// Get device orientation
-function getDeviceOrientation() {
-  let orientation = 0;
-  
-  if (screen.orientation && screen.orientation.angle !== undefined) {
-    // Modern API: returns 0, 90, 180, 270
-    orientation = screen.orientation.angle;
-  } else if (window.orientation !== undefined) {
-    // Legacy API: returns 0, 90, -90, 180
-    orientation = window.orientation;
-    // Convert -90 to 270 for consistency
-    if (orientation < 0) orientation += 360;
-  }
-  
-  return orientation;
+function evaluateMotion() {
+  const f = pressed.has("forward"), b = pressed.has("backward"),
+        l = pressed.has("left"), r = pressed.has("right");
+  let cmd = "stop";
+  if (f && l) cmd="forward_left";
+  else if (f && r) cmd="forward_right";
+  else if (b && l) cmd="backward_left";
+  else if (b && r) cmd="backward_right";
+  else if (f) cmd="forward";
+  else if (b) cmd="backward";
+  else if (l) cmd="left";
+  else if (r) cmd="right";
+  send(cmd);
 }
 
-// Update orientation info display
-function updateOrientationInfo() {
-  const orientation = getDeviceOrientation();
-  const infoEl = document.getElementById("orientation-info");
-  let orientationText = "";
-  
-  if (orientation === 0 || orientation === 180) {
-    orientationText = "Portrait";
-  } else {
-    orientationText = "Landscape";
-  }
-  
-  infoEl.textContent = `${orientationText} (${orientation}°)`;
-  deviceOrientation = orientation;
-}
-
-// Adjust angle based on device orientation
-function adjustAngleForOrientation(angle) {
-  // nipplejs gives angle relative to screen (0° = top of screen)
-  // We want angle relative to device physical orientation (0° = top of device)
-  // When device rotates clockwise, screen rotates counter-clockwise relative to device
-  // So we subtract the orientation to compensate
-  let adjustedAngle = angle - deviceOrientation;
-  
-  // Normalize to 0-360 range
-  while (adjustedAngle < 0) adjustedAngle += 360;
-  while (adjustedAngle >= 360) adjustedAngle -= 360;
-  
-  return adjustedAngle;
-}
-
-// Update visual direction indicators
-function updateDirectionIndicators(directions) {
-  const labels = document.querySelectorAll('.direction-label');
-  labels.forEach(label => {
-    label.classList.remove('active');
-  });
-  
-  if (directions.has('forward')) {
-    document.querySelector('.direction-label.forward').classList.add('active');
-  }
-  if (directions.has('backward')) {
-    document.querySelector('.direction-label.backward').classList.add('active');
-  }
-  if (directions.has('left')) {
-    document.querySelector('.direction-label.left').classList.add('active');
-  }
-  if (directions.has('right')) {
-    document.querySelector('.direction-label.right').classList.add('active');
-  }
-  
-  // Show/hide direction indicator overlay
-  const indicator = document.getElementById('direction-indicator');
-  if (directions.size > 0) {
-    indicator.classList.add('active');
-  } else {
-    indicator.classList.remove('active');
-  }
-}
-
-function initJoystick() {
-  const zone = document.getElementById("joystick-zone");
-  joystickManager = nipplejs.create({
-    zone: zone,
-    mode: 'static',
-    position: { left: '50%', top: '50%' },
-    color: '#4CAF50',
-    size: 120,
-    threshold: 0.1,
-    fadeTime: 250
-  });
-
-  joystickManager.on('start', () => {
-    console.log("🎮 Joystick started");
-    vibrate(50);
-  });
-
-  joystickManager.on('move', (evt, data) => {
-    if (controlMode !== "joystick") return;
-    
-    // Clear previous joystick-based commands
-    joystickPressed.forEach(key => pressed.delete(key));
-    joystickPressed.clear();
-
-    const rawAngle = data.angle.degree;
-    const force = data.force;
-    
-    // Adjust angle for device orientation
-    const angle = adjustAngleForOrientation(rawAngle);
-
-    // Only trigger movement if force is significant
-    if (force > 0.3) {
-      // Determine direction based on angle (0° = up/north, clockwise)
-      // Forward/Backward: 0° = forward, 180° = backward
-      // Left/Right: 90° = right, 270° = left
-      // Using expanded ranges to allow diagonal movements
-      // NOTE: Forward/Backward swapped with Left/Right
-      
-      // Right: covers 315°-45° (wrapping around) - overlaps with forward/backward for diagonals
-      if (angle >= 315 || angle <= 45) {
-        joystickPressed.add("right");
-        pressed.add("right");
-      }
-      // Left: covers 135°-225° - overlaps with forward/backward for diagonals
-      if (angle >= 135 && angle <= 225) {
-        joystickPressed.add("left");
-        pressed.add("left");
-      }
-
-      // Forward: covers 45°-135° - overlaps with left/right for diagonals
-      if (angle >= 45 && angle <= 135) {
-        joystickPressed.add("forward");
-        pressed.add("forward");
-      }
-      // Backward: covers 225°-315° - overlaps with left/right for diagonals
-      if (angle >= 225 && angle <= 315) {
-        joystickPressed.add("backward");
-        pressed.add("backward");
-      }
-    }
-
-    // Update visual indicators
-    updateDirectionIndicators(joystickPressed);
-    
-    evaluateMotion();
-  });
-
-  joystickManager.on('end', () => {
-    if (controlMode !== "joystick") return;
-    console.log("🎮 Joystick released");
-    vibrate(30);
-    // Clear joystick-based commands
-    joystickPressed.forEach(key => pressed.delete(key));
-    joystickPressed.clear();
-    updateDirectionIndicators(new Set());
-    evaluateMotion();
-  });
-}
-
-// Initialize joystick when page loads
-initJoystick();
-
-// Handle orientation changes
-updateOrientationInfo();
-window.addEventListener('orientationchange', () => {
-  setTimeout(updateOrientationInfo, 100);
+/* ------------------ BUTTON CONTROLS ------------------ */
+["forward","backward","left","right"].forEach(id=>{
+  const btn=document.getElementById(id);
+  btn.onmousedown=btn.ontouchstart=(e)=>{e.preventDefault(); pressed.add(id); evaluateMotion();};
+  btn.onmouseup=btn.ontouchend=btn.onmouseleave=(e)=>{e.preventDefault(); pressed.delete(id); evaluateMotion();};
 });
-window.addEventListener('resize', () => {
-  setTimeout(updateOrientationInfo, 100);
-});
+document.getElementById("stop").onclick=()=>{pressed.clear(); send("stop");};
 
-// Also listen for screen orientation API if available
-if (screen.orientation) {
-  screen.orientation.addEventListener('change', updateOrientationInfo);
-}
-
-// ===== GYROSCOPE CONTROL =====
-let gyroEnabled = false;
-let gyroPressed = new Set();
-const gyroThreshold = 15; // degrees of tilt to trigger movement
-const gyroDeadzone = 5; // deadzone to prevent drift
-
-const gyroToggleBtn = document.getElementById("gyroToggle");
-
-function updateGyroButton() {
-  if (gyroEnabled) {
-    gyroToggleBtn.textContent = "📱 Disable Gyro";
-    gyroToggleBtn.classList.add("active");
-  } else {
-    gyroToggleBtn.textContent = "📱 Enable Gyro";
-    gyroToggleBtn.classList.remove("active");
-    // Clear gyro-based pressed keys when disabled
-    gyroPressed.forEach(key => pressed.delete(key));
-    gyroPressed.clear();
-    evaluateMotion();
-  }
-}
-
-gyroToggleBtn.onclick = () => {
-  if (!gyroEnabled) {
-    // Request permission for DeviceOrientationEvent (iOS 13+)
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      DeviceOrientationEvent.requestPermission()
-        .then(response => {
-          if (response === 'granted') {
-            gyroEnabled = true;
-            updateGyroButton();
-            startGyro();
-          } else {
-            alert("Gyroscope permission denied. Please enable it in settings.");
-          }
-        })
-        .catch(err => console.error("Error requesting gyro permission:", err));
-    } else {
-      // Android/other browsers
-      gyroEnabled = true;
-      updateGyroButton();
-      startGyro();
-    }
-  } else {
-    gyroEnabled = false;
-    updateGyroButton();
-    stopGyro();
-  }
+/* ------------------ LIGHT TOGGLE ------------------ */
+let lightOn=false;
+const lightBtn=document.getElementById("lightToggle");
+lightBtn.onclick=()=>{
+  lightOn=!lightOn;
+  lightBtn.textContent=lightOn?"💡 Light On":"💤 Light Off";
+  lightBtn.classList.toggle("active",lightOn);
+  send(lightOn?"light_on":"light_off");
 };
 
-function startGyro() {
-  window.addEventListener("deviceorientation", handleOrientation);
+/* ------------------ SPEED SLIDER ------------------ */
+const speedSlider=document.getElementById("speed");
+const speedVal=document.getElementById("speedVal");
+speedSlider.oninput=()=>{
+  speedVal.textContent=speedSlider.value;
+  send(`speed:${speedSlider.value}`);
+};
+
+/* ------------------ JOYSTICK MODE ------------------ */
+const modeToggle=document.getElementById("controlModeToggle");
+const joystickContainer=document.getElementById("joystickContainer");
+const buttonControls=document.getElementById("buttonControls");
+let joystickLeft, joystickRight;
+
+modeToggle.onclick=()=>{
+  const active=!joystickContainer.classList.contains("active");
+  modeToggle.textContent=active?"🕹 Button Mode":"🎮 Joystick Mode";
+  modeToggle.classList.toggle("active",active);
+  joystickContainer.classList.toggle("active",active);
+  buttonControls.style.display=active?"none":"grid";
+  if(active) initDualJoysticks();
+};
+
+function initDualJoysticks() {
+  if (joystickLeft) return;
+
+  joystickLeft = nipplejs.create({
+    zone: document.getElementById("joystick-left"),
+    mode: "static",
+    position: { left: "75px", top: "75px" }, // ✅ position relative to zone center
+    color: "#4CAF50",
+    size: 120
+  });
+
+  joystickRight = nipplejs.create({
+    zone: document.getElementById("joystick-right"),
+    mode: "static",
+    position: { left: "75px", top: "75px" }, // ✅ same here
+    color: "#2196F3",
+    size: 120
+  });
+
+  joystickLeft.on("move", (e, data) => processJoystick(data, "left"));
+  joystickLeft.on("end", () => resetJoystick("left"));
+  joystickRight.on("move", (e, data) => processJoystick(data, "right"));
+  joystickRight.on("end", () => resetJoystick("right"));
 }
 
-function stopGyro() {
-  window.removeEventListener("deviceorientation", handleOrientation);
+function processJoystick(data,side){
+  const angle=data.angle?.degree||0, force=data.force||0;
+  if(force<0.3){ resetJoystick(side); return; }
+  if(side==="left"){
+    pressed.delete("forward"); pressed.delete("backward");
+    if(angle>45 && angle<135) pressed.add("forward");
+    else if(angle>225 && angle<315) pressed.add("backward");
+  }else{
+    pressed.delete("left"); pressed.delete("right");
+    if(angle>135 && angle<225) pressed.add("left");
+    else if(angle<45 || angle>315) pressed.add("right");
+  }
+  evaluateMotion();
 }
-
-function handleOrientation(event) {
-  if (!gyroEnabled) return;
-
-  const beta = event.beta; // front-back tilt (-180 to 180)
-  const gamma = event.gamma; // left-right tilt (-90 to 90)
-
-  // Clear previous gyro-based commands
-  gyroPressed.forEach(key => pressed.delete(key));
-  gyroPressed.clear();
-
-  // Forward/Backward based on beta (front-back tilt)
-  if (beta > gyroThreshold + gyroDeadzone) {
-    gyroPressed.add("backward");
-    pressed.add("backward");
-  } else if (beta < -gyroThreshold - gyroDeadzone) {
-    gyroPressed.add("forward");
-    pressed.add("forward");
-  }
-
-  // Left/Right based on gamma (left-right tilt)
-  if (gamma > gyroThreshold + gyroDeadzone) {
-    gyroPressed.add("right");
-    pressed.add("right");
-  } else if (gamma < -gyroThreshold - gyroDeadzone) {
-    gyroPressed.add("left");
-    pressed.add("left");
-  }
-
-  // Update motion based on current state
+function resetJoystick(side){
+  if(side==="left"){pressed.delete("forward");pressed.delete("backward");}
+  else {pressed.delete("left");pressed.delete("right");}
   evaluateMotion();
 }
 
-updateGyroButton();
+/* ------------------ GYROSCOPE MODE ------------------ */
+let gyroEnabled=false;
+const gyroBtn=document.getElementById("gyroToggle");
+gyroBtn.onclick=()=>{
+  if(!gyroEnabled){
+    if(typeof DeviceOrientationEvent.requestPermission==='function'){
+      DeviceOrientationEvent.requestPermission().then(res=>{
+        if(res==='granted'){enableGyro();}
+        else alert('Permission denied.');
+      });
+    } else enableGyro();
+  } else disableGyro();
+};
+function enableGyro(){
+  gyroEnabled=true; gyroBtn.textContent="📱 Disable Gyro"; gyroBtn.classList.add("active");
+  window.addEventListener("deviceorientation", handleGyro);
+}
+function disableGyro(){
+  gyroEnabled=false; gyroBtn.textContent="📱 Enable Gyro"; gyroBtn.classList.remove("active");
+  window.removeEventListener("deviceorientation", handleGyro);
+  ["forward","backward","left","right"].forEach(k=>pressed.delete(k));
+  evaluateMotion();
+}
+function handleGyro(e){
+  if(!gyroEnabled) return;
+  const beta=e.beta||0, gamma=e.gamma||0, th=15;
+  ["forward","backward","left","right"].forEach(k=>pressed.delete(k));
+  if(beta<-th) pressed.add("forward");
+  else if(beta>th) pressed.add("backward");
+  if(gamma<-th) pressed.add("left");
+  else if(gamma>th) pressed.add("right");
+  evaluateMotion();
+}
 </script>
 </body>
 </html>
