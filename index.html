@@ -305,26 +305,22 @@ function sendPWMPayload(leftPWM, rightPWM, leftDir, rightDir, force=false){
 }
 
 /* internal helper to compute signed motor values from throttle/steer */
-function computeTankFromThrottleSteer(throttle, steer){
-  // throttle: -1..1 (forward positive)
-  // steer: -1..1 (left negative, right positive)
-  // Basic mix:
-  // left = throttle + steer
-  // right = throttle - steer
-  // Clamp result to -1..1 then scale to maxLimit
+function computeTankFromThrottleSteer(throttle, steer) {
   let L = throttle + steer;
   let R = throttle - steer;
-  // clamp magnitude to within [-1,1] preserving sign
-  const maxMag = Math.max(Math.abs(L), Math.abs(R), 1);
-  if(maxMag > 1){ L /= maxMag; R /= maxMag; }
-  const scale = maxLimit / 255; // limit factor applied to final value
-  L = Math.round(L * 255 * scale);
-  R = Math.round(R * 255 * scale);
-  // clamp signed
-  L = Math.max(-255, Math.min(255, L));
-  R = Math.max(-255, Math.min(255, R));
-  return {L, R};
+
+  // clamp -1..1
+  L = Math.max(-1, Math.min(1, L));
+  R = Math.max(-1, Math.min(1, R));
+
+  // directly scale by maxLimit
+  // maxLimit is already 0–255 from slider
+  L = Math.round(L * maxLimit);
+  R = Math.round(R * maxLimit);
+
+  return { L, R };
 }
+
 
 /* set target signed values (internal) */
 function setJoystickTargets(signedLeft, signedRight){
@@ -459,19 +455,7 @@ setInterval(()=> {
   }
 }, TICK_MS);
 
-/* immediate publisher for forced stop */
-function sendPWMPayload(leftPWM, rightPWM, leftDir, rightDir, force=false){
-  // ensure numeric bounds
-  leftPWM = Math.max(0,Math.min(255,Math.round(leftPWM)));
-  rightPWM = Math.max(0,Math.min(255,Math.round(rightPWM)));
-  leftDir = leftDir || 0; rightDir = rightDir || 0;
 
-  const payload = JSON.stringify({ left:leftPWM, right:rightPWM, leftDir:leftDir, rightDir:rightDir });
-  if(client && client.connected) client.publish('car/speed', payload);
-  // Also update lastPublished to avoid double publishes
-  lastPublishedLeft = leftPWM; lastPublishedRight = rightPWM;
-  console.log('PUB car/speed ->', payload);
-}
 
 /* expose a simple function to convert raw throttle/steer (-1..1) to target signed left/right */
 function applyThrottleSteer(throttleNorm, steerNorm){
